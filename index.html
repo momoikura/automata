@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-u//VBgFXw8snX1y/Q4K3Pun3uK9gAyNuqYDzFi6PnAY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Automata</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Automata on Gumroad: tap-to-play bedtime stories starring Barnaby the clockwork fox, and plain tools for freelancers and first-time store owners.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+  /* Layout: a watchmaker's bench. Split hero with a live gear train that drives a display window,
+     then a filterable shelf, then the Barnaby series in reading order. */
+  :root {
+    --bg: #eceee9;          /* enamel dial */
+    --surface: #f7f8f4;
+    --raised: #e2e5df;
+    --ink: #161a19;
+    --ink-2: #48504d;
+    --ink-3: #626b67;
+    --line: rgb(22 26 25 / 0.10);
+    --line-strong: rgb(22 26 25 / 0.20);
+    --accent: #234a93;      /* heat-blued steel */
+    --accent-ink: #f7f8f4;
+    --brass-hi: #f1d692;
+    --brass: #c99d43;
+    --brass-lo: #7d5a1c;
+    --jewel: #a3203a;
+    --shadow: rgb(30 34 32 / 0.16);
+    --font-display: "Young Serif", Georgia, "Times New Roman", serif;
+    --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1215; --surface: #141b1f; --raised: #1c252a;
+      --ink: #e8ebe7; --ink-2: #a8b1ad; --ink-3: #8a9490;
+      --line: rgb(232 235 231 / 0.09); --line-strong: rgb(232 235 231 / 0.18);
+      --accent: #9db8ef; --accent-ink: #0d1215;
+      --brass-hi: #f3dc9e; --brass: #c79a3f; --brass-lo: #6e4f17;
+      --jewel: #c4334f; --shadow: rgb(0 0 0 / 0.45);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1215; --surface: #141b1f; --raised: #1c252a;
+    --ink: #e8ebe7; --ink-2: #a8b1ad; --ink-3: #8a9490;
+    --line: rgb(232 235 231 / 0.09); --line-strong: rgb(232 235 231 / 0.18);
+    --accent: #9db8ef; --accent-ink: #0d1215;
+    --brass-hi: #f3dc9e; --brass: #c79a3f; --brass-lo: #6e4f17;
+    --jewel: #c4334f; --shadow: rgb(0 0 0 / 0.45);
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { background: var(--bg); color: var(--ink); font: 400 16px/1.55 var(--font-body); margin: 0; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  img { display: block; max-width: 100%; }
+  .wrap {
+    max-width: 1240px; margin-inline: auto;
+    padding-left: max(24px, env(safe-area-inset-left, 0px));
+    padding-right: max(24px, env(safe-area-inset-right, 0px));
+  }
+  @media (max-width: 600px) {
+    .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  }
+  .mono { font-family: var(--font-mono); font-size: 12px; line-height: 16px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  /* Top bar */
+  .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); border-block-end: 1px solid var(--line); }
+  .bar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-block-size: 60px; }
+  .who { display: flex; align-items: center; gap: 10px; text-decoration: none; min-width: 0; }
+  .who img { inline-size: 32px; block-size: 32px; border-radius: 50%; border: 1px solid var(--line-strong); }
+  .who b { font-weight: 600; font-size: 16px; }
+  .who span { color: var(--ink-3); font-size: 14px; }
+  .link-quiet { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; text-decoration: none; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--surface); transition: background-color 160ms var(--ease), border-color 160ms var(--ease); white-space: nowrap; }
+  .link-quiet:hover { background: var(--raised); }
+  .ico { inline-size: 16px; block-size: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 48px; align-items: center; padding-block: 72px 56px; }
+  .hero-copy { display: grid; gap: 24px; align-content: center; }
+  .avatar-lg { display: flex; align-items: center; gap: 14px; }
+  .avatar-lg img { inline-size: 64px; block-size: 64px; border-radius: 50%; box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px var(--line-strong); }
+  h1 { font: 400 clamp(56px, 9vw, 112px)/0.95 var(--font-display); letter-spacing: -0.03em; margin: 0; text-wrap: balance; }
+  .lede { font-size: 20px; line-height: 30px; color: var(--ink-2); max-inline-size: 34rem; margin: 0; text-wrap: pretty; }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+  .facts span { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .facts b { color: var(--ink); font-weight: 500; }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-block-size: 48px; padding-inline: 20px; border-radius: 10px; font: 500 16px/1 var(--font-body); text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: background-color 160ms var(--ease), border-color 160ms var(--ease), transform 120ms var(--ease); }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--ink); color: var(--bg); }
+  .btn-primary:hover { background: color-mix(in srgb, var(--ink) 84%, var(--accent)); }
+  .btn-quiet { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+  .btn-quiet:hover { background: var(--raised); }
+
+  /* The movement: the one rich moment on the page */
+  .movement { position: relative; aspect-ratio: 1 / 1; max-width: 100%; inline-size: min(100%, 600px); justify-self: end; touch-action: none; }
+  .movement canvas { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; cursor: grab; }
+  .movement canvas.dragging { cursor: grabbing; }
+  .plate { position: absolute; inset: 4%; border-radius: 50%; background: radial-gradient(circle at 50% 45%, var(--surface), var(--raised) 70%); box-shadow: inset 0 0 0 1px var(--line), inset 0 -20px 60px var(--shadow); }
+  .plate::after { content: ""; position: absolute; inset: 6%; border-radius: 50%; background: repeating-conic-gradient(from 0deg, var(--line-strong) 0 0.4deg, transparent 0.4deg 6deg); mask: radial-gradient(circle, transparent 69%, #000 69.5%, #000 72%, transparent 72.5%); }
+  .window {
+    position: absolute; left: 55%; top: 60%; inline-size: 39%; display: grid; gap: 8px;
+  }
+  .window-frame {
+    position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;
+    background: var(--ink);
+    box-shadow: 0 0 0 4px var(--brass), 0 0 0 5px var(--brass-lo), 0 14px 30px var(--shadow);
+  }
+  .window-frame img { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; object-fit: cover; }
+  .window-frame::after { content: ""; position: absolute; inset: 0; background: linear-gradient(165deg, rgb(255 255 255 / 0.22), transparent 38%); pointer-events: none; }
+  .window-cap { display: grid; gap: 2px; }
+  .window-cap button { all: unset; cursor: pointer; font-weight: 600; font-size: 15px; line-height: 20px; border-radius: 4px; }
+  .window-cap button:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .window-cap button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hint { position: absolute; left: 6%; top: 3%; display: flex; align-items: center; gap: 8px; }
+  .hint .mono { color: var(--ink-2); }
+  .move-controls { position: absolute; right: 2%; top: 2%; display: flex; gap: 8px; }
+  .chip-btn { display: inline-flex; align-items: center; gap: 6px; font: 500 13px/1 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; cursor: pointer; transition: background-color 160ms var(--ease); }
+  .chip-btn:hover { background: var(--raised); }
+
+  /* Section heads */
+  section.block { padding-block: 64px; border-block-start: 1px solid var(--line); }
+  .head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px 32px; margin-block-end: 32px; }
+  .head-text { display: grid; gap: 8px; max-inline-size: 40rem; }
+  h2 { font: 400 clamp(32px, 4.4vw, 48px)/1.05 var(--font-display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+  .head p { margin: 0; color: var(--ink-2); font-size: 17px; }
+
+  /* Filter */
+  .filters { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--raised); border-radius: 12px; }
+  .filters button { font: 500 14px/1 var(--font-body); color: var(--ink-2); background: transparent; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; transition: background-color 160ms var(--ease), color 160ms var(--ease); }
+  .filters button:hover { color: var(--ink); }
+  .filters button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px var(--shadow), inset 0 0 0 1px var(--line); }
+  .filters .n { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
+
+  /* Shelf */
+  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 24px; list-style: none; padding: 0; margin: 0; }
+  .shelf li { view-transition-class: card; }
+  .card { all: unset; box-sizing: border-box; display: grid; grid-template-rows: auto 1fr; inline-size: 100%; block-size: 100%; cursor: pointer; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; transition: border-color 160ms var(--ease), box-shadow 220ms var(--ease); }
+  .card:hover { border-color: var(--line-strong); box-shadow: 0 10px 28px var(--shadow); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .card-media { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--raised); }
+  .card-media img { inline-size: 100%; block-size: 100%; object-fit: cover; translate: var(--px, 0) var(--py, 0); scale: 1.04; transition: translate 300ms var(--ease); }
+  .card-body { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; padding: 16px 20px 20px; }
+  .card-title { font: 600 18px/1.3 var(--font-body); margin: 0; text-wrap: balance; }
+  .card-sum { margin: 0; font-size: 15px; line-height: 22px; color: var(--ink-2); }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-block-start: 12px; border-block-start: 1px solid var(--line); margin-block-start: 4px; }
+  .price { font: 500 16px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+  .price.free { color: var(--accent); }
+  .more { font-size: 14px; color: var(--ink-3); display: inline-flex; gap: 6px; align-items: center; }
+
+  /* Series rail */
+  .rail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 31%); gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding-block: 8px 24px; list-style: none; margin: 0; padding-inline: 2px; scrollbar-width: thin; }
+  .rail:focus-visible { outline-offset: 6px; }
+  @media (max-width: 700px) { .rail { grid-auto-columns: 82%; } }
+  .rail li { scroll-snap-align: start; }
+  .book { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 12px; inline-size: 100%; border-radius: 14px; }
+  .book:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  .book .cover { aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px var(--shadow); transition: box-shadow 220ms var(--ease); }
+  .book:hover .cover { box-shadow: 0 12px 28px var(--shadow); }
+  .book .cover img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+  .book .meta { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .book .t { font-weight: 600; font-size: 16px; line-height: 22px; }
+  .no { font: 500 12px/1 var(--font-mono); color: var(--ink-2); border: 1px solid var(--line-strong); border-radius: 4px; padding: 4px 6px; white-space: nowrap; }
+  .rail-nav { display: flex; gap: 8px; }
+  .rail-nav button { inline-size: 44px; block-size: 44px; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; transition: background-color 160ms var(--ease); }
+  .rail-nav button:hover { background: var(--raised); }
+
+  footer { border-block-start: 1px solid var(--line); padding-block: 40px 56px; }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; align-items: center; }
+  footer p { margin: 0; color: var(--ink-3); font-size: 14px; max-inline-size: 36rem; }
+
+  /* Detail sheet */
+  dialog.sheet { inline-size: min(880px, calc(100vw - 32px)); max-block-size: calc(100dvh - 48px); padding: 0; border: 1px solid var(--line-strong); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px var(--shadow); overflow: auto; view-transition-name: sheet; }
+  dialog.sheet:modal { overscroll-behavior: contain; }
+  dialog.sheet::backdrop { background: rgb(8 10 12 / 0.55); backdrop-filter: blur(4px); overflow: hidden; overscroll-behavior: contain; }
+  .sheet-grid { display: grid; grid-template-columns: 1.1fr 1fr; }
+  @media (max-width: 760px) { .sheet-grid { grid-template-columns: 1fr; } }
+  .sheet-media { background: var(--raised); align-self: stretch; display: grid; align-content: center; }
+  .sheet-media img { inline-size: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+  .sheet-body { display: grid; gap: 16px; padding: 28px; align-content: start; }
+  .sheet-body h1 { font: 400 30px/1.12 var(--font-display); letter-spacing: -0.01em; }
+  .sheet-body p { margin: 0; color: var(--ink-2); }
+  .details { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+  .details dt { color: var(--ink-3); }
+  .details dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .code { font-family: var(--font-mono); font-size: 13px; color: var(--ink); background: var(--raised); border-radius: 6px; padding: 8px 10px; }
+  .sheet-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding-block-start: 16px; border-block-start: 1px solid var(--line); }
+  .sheet-actions .price { font-size: 22px; }
+  .close { position: absolute; top: 12px; right: 12px; inline-size: 40px; block-size: 40px; border-radius: 10px; border: 1px solid var(--line-strong); background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+
+  @media (max-width: 920px) {
+    .hero { grid-template-columns: 1fr; padding-block: 40px 32px; gap: 32px; }
+    .movement { justify-self: center; }
+  }
+  @media (max-width: 480px) {
+    .window-cap .mono { display: none; }
+    .window-cap button { font-size: 13px; line-height: 16px; }
+    .hint { display: none; }
+  }
+
+  /* View transitions */
+  :root { view-transition-name: none; }
+  ::view-transition { pointer-events: none; }
+  ::view-transition-group(*) { animation-duration: 460ms; animation-timing-function: var(--ease); }
+  ::view-transition-group(.card) { animation-duration: 420ms; }
+  ::view-transition-new(.card):only-child { animation: card-in 380ms var(--ease) both; }
+  ::view-transition-old(.card):only-child { animation: card-out 220ms ease-in both; }
+  ::view-transition-old(cover), ::view-transition-new(cover) { height: 100%; object-fit: cover; }
+  ::view-transition-new(sheet):only-child { animation: sheet-in 420ms var(--ease) both; }
+  ::view-transition-old(sheet):only-child { animation: sheet-out 260ms ease-in both; }
+  @keyframes card-in { from { opacity: 0; scale: 0.94; } }
+  @keyframes card-out { to { opacity: 0; scale: 0.94; } }
+  @keyframes sheet-in { from { opacity: 0; translate: 0 16px; } }
+  @keyframes sheet-out { to { opacity: 0; translate: 0 12px; } }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  }
+
+  /* One entrance on load, from a readable state */
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-copy > * { animation: rise 600ms var(--ease) both; }
+    .hero-copy > *:nth-child(2) { animation-delay: 60ms; }
+    .hero-copy > *:nth-child(3) { animation-delay: 120ms; }
+    .hero-copy > *:nth-child(4) { animation-delay: 180ms; }
+    .hero-copy > *:nth-child(5) { animation-delay: 240ms; }
+    @keyframes rise { from { translate: 0 12px; opacity: 0.2; } }
+
+    @supports ((animation-timeline: view()) and (animation-range: entry)) {
+      .shelf li { animation: lift linear both; animation-timeline: view(); animation-range: entry 0% entry 60%; }
+      @keyframes lift { from { translate: 0 28px; } }
+      .rail li { animation: focus-in linear both; animation-timeline: view(inline); }
+      @keyframes focus-in {
+        entry 0% { scale: 0.9; opacity: 0.55; }
+        entry 100%, exit 0% { scale: 1; opacity: 1; }
+        exit 100% { scale: 0.9; opacity: 0.55; }
+      }
+    }
+  }
+
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+
+<header class="bar">
+  <div class="wrap">
+    <a class="who" href="https://markdanila1.gumroad.com/" target="_blank" rel="noopener">
+      <img data-avatar src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" width="32" height="32">
+      <b data-name>Automata</b><span data-handle>@markdanila1</span>
+    </a>
+    <a class="link-quiet" href="https://markdanila1.gumroad.com/" target="_blank" rel="noopener">
+      Gumroad store
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+    </a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="hero-copy">
+      <div class="avatar-lg">
+        <img data-avatar src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Automata profile picture" width="64" height="64">
+        <span class="mono">markdanila1.gumroad.com</span>
+      </div>
+      <h1 data-name>Automata</h1>
+      <p class="lede">Small digital things that do one job well. Tap-to-play bedtime stories starring Barnaby the clockwork fox, and plain tools for freelancers and first-time store owners.</p>
+      <div class="facts" aria-label="Store at a glance">
+        <span><b id="f-total">10</b> products</span><span><b id="f-books">8</b> picture books</span><span><b id="f-tools">2</b> work tools</span><span>from <b id="f-min">$0</b></span>
+      </div>
+      <div class="ctas">
+        <a class="btn btn-primary" href="#shelf">Browse the shelf</a>
+        <a class="btn btn-quiet" href="https://markdanila1.gumroad.com/" target="_blank" rel="noopener">Open on Gumroad
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+      </div>
+    </div>
+
+    <figure class="movement" aria-labelledby="move-cap" style="margin:0">
+      <div class="plate" aria-hidden="true"></div>
+      <canvas id="gears" aria-hidden="true"></canvas>
+      <div class="hint" aria-hidden="true">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+        <span class="mono" id="hint-text">Drag the big wheel to wind it</span>
+      </div>
+      <div class="move-controls">
+        <button type="button" class="chip-btn" id="wind">Wind</button>
+        <button type="button" class="chip-btn" id="pause">Pause</button>
+      </div>
+      <div class="window">
+        <div class="window-frame"><img id="win-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" width="800" height="450"></div>
+        <figcaption class="window-cap" id="move-cap">
+          <span class="mono" id="win-meta">On the shelf · $29</span>
+          <button type="button" id="win-open">AI Dropshipping Blueprint</button>
+        </figcaption>
+      </div>
+    </figure>
+  </div>
+
+  <section class="block" id="shelf" aria-labelledby="shelf-title">
+    <div class="wrap">
+      <div class="head">
+        <div class="head-text">
+          <span class="mono">The shelf</span>
+          <h2 id="shelf-title" tabindex="-1">Everything in the store</h2>
+          <p>Open any product for the details. Checkout, receipts and downloads all happen on Gumroad.</p>
+        </div>
+        <div class="filters" role="group" aria-label="Filter products">
+          <button type="button" data-filter="all" aria-pressed="true">All <span class="n" id="n-all">10</span></button>
+          <button type="button" data-filter="books" aria-pressed="false">Picture books <span class="n" id="n-books">8</span></button>
+          <button type="button" data-filter="tools" aria-pressed="false">Work tools <span class="n" id="n-tools">2</span></button>
+        </div>
+      </div>
+      <ul class="shelf" id="shelf-list"></ul>
+      <p class="mono" id="filter-status" role="status" style="margin-top:16px"></p>
+    </div>
+  </section>
+
+  <section class="block" id="series" aria-labelledby="series-title">
+    <div class="wrap">
+      <div class="head">
+        <div class="head-text">
+          <span class="mono">Barnaby the little clockwork fox</span>
+          <h2 id="series-title">Seven stories, in reading order</h2>
+          <p>Every book stands on its own, with read-aloud, a sparkle hunt, a coloring page and a printable PDF. The coloring pack is free if you want to meet Barnaby first.</p>
+        </div>
+        <div class="rail-nav">
+          <button type="button" id="rail-prev" aria-label="Scroll the series back">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg></button>
+          <button type="button" id="rail-next" aria-label="Scroll the series forward">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+      </div>
+      <ol class="rail" id="rail" tabindex="0" aria-label="Barnaby books in reading order"></ol>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="who" href="https://markdanila1.gumroad.com/" target="_blank" rel="noopener">
+      <img data-avatar src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" width="32" height="32"><b data-name>Automata</b><span>on Gumroad</span>
+    </a>
+    <p>Payment, receipts and downloads are handled by Gumroad. Prices are in US dollars.</p>
+  </div>
+</footer>
+
+<dialog class="sheet" id="sheet" closedby="any" aria-labelledby="sheet-title">
+  <button type="button" class="close" id="sheet-close" aria-label="Close">
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <div class="sheet-grid">
+    <div class="sheet-media"><img id="sheet-img" alt="" width="800" height="450"></div>
+    <div class="sheet-body">
+      <span class="mono" id="sheet-kicker"></span>
+      <h1 id="sheet-title"></h1>
+      <p id="sheet-sum"></p>
+      <dl class="details" id="sheet-details"></dl>
+      <p class="code" id="sheet-code" hidden></p>
+      <div class="sheet-actions">
+        <span class="price" id="sheet-price"></span>
+        <a class="btn btn-primary" id="sheet-buy" target="_blank" rel="noopener">Get it on Gumroad
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(async () => {
+  const BASE = 'https://markdanila1.gumroad.com/l/';
+  // Hand-written extras for known products. Live data (price, cover, link) comes from the feed.
+  const CURATED = [
+    { id: 'dropship', kind: 'tools', price: 29, title: 'AI Dropshipping Blueprint', full: 'AI Dropshipping Blueprint: Launch Your Automated Store from Scratch',
+      kicker: 'Course · for beginners', sum: 'Six plain-English modules, 54 AI prompts, a profit calculator and a 7-day launch plan.',
+      details: [['Format', 'PDF guide + 3 browser pages'], ['Modules', '6'], ['Prompts', '54'], ['Level', 'Complete beginner']],
+      code: 'Code EARLYBIRD takes 20% off at checkout', url: BASE + 'ai-dropshipping-blueprint' },
+    { id: 'freelance', kind: 'tools', price: 15, title: 'Freelance Quote & Scope Calculator', full: 'Freelance Project Quote & Scope Calculator (+ Scope-Creep Email Scripts)',
+      kicker: 'Calculator · for freelancers', sum: 'Price a project in three tiers, add tax and fee buffers, export a PDF proposal, and answer scope creep with five ready email scripts.',
+      details: [['Format', 'Offline HTML calculator'], ['Quote tiers', '3'], ['Email scripts', '5'], ['Currencies', 'PHP, USD, EUR and more']],
+      url: BASE + 'cnydl' },
+    { id: 'loststar', kind: 'books', book: 1, price: 9, title: 'Barnaby and the Lost Star', full: 'Barnaby the Little Clockwork Fox and the Lost Star',
+      kicker: 'Picture book · ages 4 to 8', sum: 'A 10-page tap-to-play bedtime story with a coloring page, a picture quiz and printable pages. Works offline in any browser.',
+      details: [['Series', 'Barnaby book 1'], ['Story pages', '10'], ['Coloring sheets', '3'], ['Format', 'Offline HTML + PDF']], url: BASE + 'bedtime-story-coloring-pages' },
+    { id: 'kite', kind: 'books', book: 2, price: 9, title: 'Barnaby and the Runaway Kite', full: 'Barnaby and the Runaway Kite',
+      kicker: 'Picture book · ages 4 to 8', sum: 'A breezy day, a runaway kite, and two small friends who find out they can reach anything together.',
+      details: [['Series', 'Barnaby book 2'], ['Story pages', '10'], ['Coloring sheets', '3'], ['Format', 'Offline HTML + PDF']], url: BASE + 'barnaby-runaway-kite-bedtime-story' },
+    { id: 'snowflake', kind: 'books', book: 3, price: 9, title: 'Barnaby and the Snowflake Ball', full: 'Barnaby and the Snowflake Ball',
+      kicker: 'Picture book · ages 4 to 8', sum: 'A snowy night, a shy little penguin, and a dance party where everyone gets to be exactly who they are.',
+      details: [['Series', 'Barnaby book 3'], ['Story pages', '10'], ['Coloring sheets', '3'], ['Format', 'Offline HTML + PDF']], url: BASE + 'barnaby-snowflake-ball-bedtime-story' },
+    { id: 'lighthouse', kind: 'books', book: 4, price: 9, title: 'Barnaby and the Lighthouse Light', full: 'Barnaby and the Lighthouse Light',
+      kicker: 'Picture book · ages 4 to 8', sum: 'A day at the sea, a lighthouse gone dark, and a clockwork fox who knows exactly how to wind it back to life.',
+      details: [['Series', 'Barnaby book 4'], ['Story pages', '10'], ['Coloring sheets', '3'], ['Format', 'Offline HTML + PDF']], url: BASE + 'barnaby-lighthouse-light-bedtime-story' },
+    { id: 'rainbow', kind: 'books', book: 5, price: 9, title: 'Barnaby and the Rainy Day Rainbow', full: 'Barnaby and the Rainy Day Rainbow',
+      kicker: 'Picture book · ages 4 to 8', sum: 'Three gray days of rain, one sad little bunny, and the happiest surprise waiting at the end of the storm.',
+      details: [['Series', 'Barnaby book 5'], ['Story pages', '10'], ['Coloring sheets', '3'], ['Format', 'Offline HTML + PDF']], url: BASE + 'barnaby-rainy-day-rainbow-bedtime-story' },
+    { id: 'ticktock', kind: 'books', book: 6, price: 9, title: 'Barnaby and the Quiet Tick-Tock', full: 'Barnaby and the Quiet Tick-Tock',
+      kicker: 'Picture book · ages 4 to 8', sum: "One morning, Barnaby's tick-tock heart goes quiet. Finding out why takes a clockmaker, a meadow search and a very small mouse.",
+      details: [['Series', 'Barnaby book 6'], ['Story pages', '10'], ['Coloring sheets', '3'], ['Format', 'Offline HTML + PDF']], url: BASE + 'barnaby-quiet-tick-tock-bedtime-story' },
+    { id: 'busybee', kind: 'books', book: 7, price: 9, title: 'Barnaby and the Busy Bee Garden', full: 'Barnaby and the Busy Bee Garden',
+      kicker: 'Picture book · ages 4 to 8', sum: 'A packet of seeds, a buzzing new friend, and a garden that teaches Barnaby the magic of waiting.',
+      details: [['Series', 'Barnaby book 7'], ['Story pages', '10'], ['Coloring sheets', '3'], ['Format', 'Offline HTML + PDF']], url: BASE + 'barnaby-busy-bee-garden-bedtime-story' },
+    { id: 'freefox', kind: 'books', price: 0, title: 'Free Fox Coloring Pages', full: 'Free Fox Coloring Pages for Kids',
+      kicker: 'Printable · ages 4 to 8', sum: 'A free 3-page printable coloring pack starring Barnaby the clockwork fox, with a draw-your-own activity page.',
+      details: [['Pages', '3'], ['Format', 'Printable PDF'], ['Price', 'Pay what you want, from $0']], url: BASE + 'free-fox-coloring-pages' },
+  ];
+  const BOOT = null;
+  const slugOf = (u) => String(u || '').replace(/[?#].*$/, '').split('/').filter(Boolean).pop() || '';
+  const cssId = (slug) => `p-${slug.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+  let feed = BOOT;
+  if (!feed) {
+    try {
+      const res = await fetch('data/products.json', { cache: 'no-cache' });
+      if (res.ok) feed = await res.json();
+    } catch { /* not deployed yet or offline: use the curated list below */ }
+  }
+  const curatedBySlug = Object.fromEntries(CURATED.map((c, i) => [slugOf(c.url), { ...c, rank: i }]));
+  const live = feed?.products?.length ? feed.products : CURATED.map((c) => ({ url: c.url, price: c.price, cover: '' }));
+  const PRODUCTS = live.map((raw) => {
+    const slug = slugOf(raw.url);
+    const c = curatedBySlug[slug];
+    const guess = {
+      kind: raw.kind === 'books' ? 'books' : 'tools', book: raw.book,
+      title: raw.title || 'New product', full: raw.full || raw.title || 'New product',
+      kicker: raw.kind === 'books' ? 'Picture book' : 'New in the store', sum: raw.sum || '', details: [],
+    };
+    return { ...guess, ...(c || {}), id: cssId(slug), url: raw.url, cover: raw.cover || '',
+      price: Number.isFinite(raw.price) ? raw.price : (c?.price ?? 0), isNew: !c, rank: c ? c.rank : -1 };
+  }).sort((a, b) => a.rank - b.rank);
+  const IMG = Object.fromEntries(PRODUCTS.map((p) => [p.id, p.cover]));
+  const priceText = (p) => (p === 0 ? 'Free' : `$${Number.isInteger(p) ? p : p.toFixed(2)}`);
+  const byId = Object.fromEntries(PRODUCTS.map((p) => [p.id, p]));
+
+  /* Profile and store numbers from the feed */
+  if (feed?.profile) {
+    const { name, username, avatar } = feed.profile;
+    if (name) document.querySelectorAll('[data-name]').forEach((n) => { n.textContent = name; });
+    if (username) document.querySelectorAll('[data-handle]').forEach((n) => { n.textContent = `@${username}`; });
+    if (avatar) document.querySelectorAll('[data-avatar]').forEach((n) => { n.src = avatar; });
+  }
+  const count = (k) => PRODUCTS.filter((p) => k === 'all' || p.kind === k).length;
+  const setText = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = v; };
+  setText('f-total', count('all')); setText('f-books', count('books')); setText('f-tools', count('tools'));
+  const minPrice = Math.min(...PRODUCTS.map((p) => p.price));
+  setText('f-min', minPrice === 0 ? '$0' : priceText(minPrice));
+  setText('n-all', count('all')); setText('n-books', count('books')); setText('n-tools', count('tools'));
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const vt = (fn) => (document.startViewTransition && !reduced.matches ? document.startViewTransition(fn) : (fn(), null));
+
+  const el = (tag, props = {}, kids = []) => { const n = Object.assign(document.createElement(tag), props); n.append(...kids); return n; };
+  const arrow = () => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = '<path d="M5 12h14M13 6l6 6-6 6"/>'; return s; };
+
+  /* Shelf */
+  const shelf = document.getElementById('shelf-list');
+  PRODUCTS.forEach((p) => {
+    const img = el('img', { src: IMG[p.id], alt: '', width: 800, height: 450, loading: 'lazy', decoding: 'async' });
+    const card = el('button', { type: 'button', className: 'card' }, [
+      el('span', { className: 'card-media' }, [img]),
+      el('span', { className: 'card-body' }, [
+        el('span', { className: 'mono', textContent: `${p.isNew ? 'New · ' : ''}${p.book ? `Book ${p.book} · ${p.kicker.split(' · ')[1] || p.kicker}` : p.kicker}` }),
+        el('span', { className: 'card-title', textContent: p.title }),
+        el('span', { className: 'card-sum', textContent: p.sum }),
+        el('span', { className: 'card-foot' }, [
+          el('span', { className: `price${p.price === 0 ? ' free' : ''}`, textContent: priceText(p.price) }),
+          el('span', { className: 'more' }, ['Details', arrow()]),
+        ]),
+      ]),
+    ]);
+    card.setAttribute('aria-label', `${p.title}, ${priceText(p.price)}. Show details`);
+    card.addEventListener('click', () => openSheet(p.id, img));
+    card.addEventListener('pointermove', (e) => {
+      if (reduced.matches || e.pointerType !== 'mouse') return;
+      const r = card.getBoundingClientRect();
+      img.style.setProperty('--px', `${((e.clientX - r.left) / r.width - 0.5) * -10}px`);
+      img.style.setProperty('--py', `${((e.clientY - r.top) / r.height - 0.5) * -6}px`);
+    });
+    card.addEventListener('pointerleave', () => { img.style.removeProperty('--px'); img.style.removeProperty('--py'); });
+    const li = el('li', {}, [card]);
+    li.dataset.kind = p.kind;
+    li.style.viewTransitionName = `card-${p.id}`;
+    shelf.append(li);
+  });
+
+  /* Filters */
+  const status = document.getElementById('filter-status');
+  document.querySelectorAll('.filters button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.getAttribute('aria-pressed') === 'true') return;
+      const f = btn.dataset.filter;
+      vt(() => {
+        document.querySelectorAll('.filters button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+        let n = 0;
+        shelf.querySelectorAll('li').forEach((li) => { const show = f === 'all' || li.dataset.kind === f; li.hidden = !show; if (show) n++; });
+        status.textContent = `Showing ${n} of ${PRODUCTS.length} products`;
+      });
+    });
+  });
+
+  /* Series rail */
+  const rail = document.getElementById('rail');
+  PRODUCTS.filter((p) => p.book).sort((a, b) => a.book - b.book).concat(PRODUCTS.filter((p) => p.kind === 'books' && !p.book)).forEach((p) => {
+    const img = el('img', { src: IMG[p.id], alt: '', width: 800, height: 450, loading: 'lazy', decoding: 'async' });
+    const b = el('button', { type: 'button', className: 'book' }, [
+      el('span', { className: 'cover' }, [img]),
+      el('span', { className: 'meta' }, [
+        el('span', { className: 't', textContent: p.title.replace('Barnaby and the ', 'The ') }),
+        el('span', { className: 'no', textContent: p.book ? `Book ${p.book} · ${priceText(p.price)}` : 'Start free' }),
+      ]),
+    ]);
+    b.setAttribute('aria-label', `${p.title}, ${p.book ? `book ${p.book}, ` : ''}${priceText(p.price)}. Show details`);
+    b.addEventListener('click', () => openSheet(p.id, img));
+    rail.append(el('li', {}, [b]));
+  });
+  const step = () => rail.querySelector('li')?.getBoundingClientRect().width + 20 || 300;
+  document.getElementById('rail-prev').addEventListener('click', () => rail.scrollBy({ left: -step(), behavior: reduced.matches ? 'auto' : 'smooth' }));
+  document.getElementById('rail-next').addEventListener('click', () => rail.scrollBy({ left: step(), behavior: reduced.matches ? 'auto' : 'smooth' }));
+
+  /* Detail sheet with a shared-cover morph */
+  const sheet = document.getElementById('sheet');
+  const sImg = document.getElementById('sheet-img');
+  let sourceImg = null;
+  function fillSheet(p) {
+    sImg.src = IMG[p.id];
+    document.getElementById('sheet-kicker').textContent = p.book ? `Book ${p.book} · ${p.kicker}` : p.kicker;
+    document.getElementById('sheet-title').textContent = p.full;
+    document.getElementById('sheet-sum').textContent = p.sum;
+    document.getElementById('sheet-details').replaceChildren(...p.details.flatMap(([k, v]) => [el('dt', { textContent: k }), el('dd', { textContent: v })]));
+    const code = document.getElementById('sheet-code');
+    code.hidden = !p.code; code.textContent = p.code || '';
+    document.getElementById('sheet-price').textContent = priceText(p.price);
+    const buy = document.getElementById('sheet-buy');
+    buy.href = p.url;
+    buy.firstChild.textContent = p.price === 0 ? 'Get it free on Gumroad ' : 'Get it on Gumroad ';
+  }
+  function openSheet(id, img) {
+    const p = byId[id];
+    if (!p || sheet.open) return;
+    sourceImg = img || null;
+    if (sourceImg) sourceImg.style.viewTransitionName = 'cover';
+    const t = vt(() => {
+      fillSheet(p);
+      if (sourceImg) sourceImg.style.viewTransitionName = '';
+      sImg.style.viewTransitionName = 'cover';
+      sheet.showModal();
+      document.getElementById('sheet-buy').focus();
+    });
+    if (!t) sImg.style.viewTransitionName = '';
+  }
+  function closeSheet() {
+    if (!sheet.open) return;
+    const t = vt(() => {
+      sImg.style.viewTransitionName = '';
+      if (sourceImg) sourceImg.style.viewTransitionName = 'cover';
+      sheet.close();
+    });
+    const clean = () => { if (sourceImg) sourceImg.style.viewTransitionName = ''; };
+    t ? t.finished.finally(clean) : clean();
+  }
+  document.getElementById('sheet-close').addEventListener('click', closeSheet);
+  sheet.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); });
+  sheet.addEventListener('close', () => { sImg.style.viewTransitionName = ''; });
+  if (!('closedBy' in HTMLDialogElement.prototype)) {
+    sheet.addEventListener('click', (e) => {
+      if (e.target !== sheet) return;
+      const r = sheet.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeSheet();
+    });
+  }
+
+  /* The movement: four meshing gears; the smallest one drives the display window */
+  const canvas = document.getElementById('gears');
+  const ctx = canvas.getContext('2d');
+  const W = 520, M = 6;
+  const gear = (t, x, y, spokes) => ({ t, x, y, r: (M * t) / 2, spokes, a: 0, phase: 0 });
+  const A = gear(36, 210, 230, 5), B = gear(18, 0, 0, 4), C = gear(28, 0, 0, 5), D = gear(12, 0, 0, 3);
+  const mesh = (parent, child, deg) => {
+    const th = (deg * Math.PI) / 180, d = parent.r + child.r;
+    child.x = parent.x + Math.cos(th) * d; child.y = parent.y + Math.sin(th) * d;
+    child.base = { parent, th };
+  };
+  mesh(A, B, -32); mesh(A, C, 118); mesh(B, D, 32);
+  const GEARS = [C, A, B, D];
+  // Phase so the teeth interleave: child angle = th + PI + PI/t + (parentAngle - th) * -(tp/tc)
+  const angleOf = (g, aA) => {
+    if (g === A) return aA;
+    const { parent, th } = g.base;
+    const pa = angleOf(parent, aA);
+    return th + Math.PI + Math.PI / g.t - (pa - th) * (parent.t / g.t);
+  };
+
+  let colors = {};
+  const readColors = () => { const cs = getComputedStyle(document.documentElement); ['--brass-hi', '--brass', '--brass-lo', '--jewel', '--accent', '--shadow'].forEach((k) => (colors[k] = cs.getPropertyValue(k).trim())); };
+  readColors();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); draw(); });
+  new MutationObserver(() => { readColors(); draw(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  let scale = 1;
+  function resize() {
+    const box = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(box.width * dpr); canvas.height = Math.round(box.height * dpr);
+    scale = (box.width / W) * dpr;
+    draw();
+  }
+
+  function gearPath(g, ang) {
+    const step = (Math.PI * 2) / g.t, ro = g.r + M, rr = g.r - 1.25 * M;
+    ctx.beginPath();
+    for (let i = 0; i < g.t; i++) {
+      const a = ang + i * step;
+      const p = [[rr, a - step * 0.5], [rr, a - step * 0.27], [ro, a - step * 0.14], [ro, a + step * 0.14], [rr, a + step * 0.27]];
+      p.forEach(([rad, an], k) => { const x = g.x + Math.cos(an) * rad, y = g.y + Math.sin(an) * rad; i === 0 && k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    }
+    ctx.closePath();
+    // spoke windows, cut with even-odd
+    const rim = rr - M * 1.4, hub = Math.max(g.r * 0.26, 9), half = 0.16;
+    for (let s = 0; s < g.spokes; s++) {
+      const a0 = ang + (s * Math.PI * 2) / g.spokes + half, a1 = ang + ((s + 1) * Math.PI * 2) / g.spokes - half;
+      ctx.moveTo(g.x + Math.cos(a0) * hub, g.y + Math.sin(a0) * hub);
+      ctx.arc(g.x, g.y, rim, a0 + 0.02, a1 - 0.02);
+      ctx.arc(g.x, g.y, hub + 2, a1, a0, true);
+      ctx.closePath();
+    }
+  }
+
+  function drawGear(g, ang) {
+    ctx.save();
+    ctx.shadowColor = colors['--shadow']; ctx.shadowBlur = 18; ctx.shadowOffsetY = 8;
+    gearPath(g, ang);
+    const grad = ctx.createRadialGradient(g.x - g.r * 0.35, g.y - g.r * 0.45, g.r * 0.1, g.x, g.y, g.r * 1.15);
+    grad.addColorStop(0, colors['--brass-hi']); grad.addColorStop(0.55, colors['--brass']); grad.addColorStop(1, colors['--brass-lo']);
+    ctx.fillStyle = grad; ctx.fill('evenodd');
+    ctx.restore();
+    ctx.save();
+    gearPath(g, ang);
+    ctx.lineWidth = 1; ctx.strokeStyle = colors['--brass-lo']; ctx.stroke();
+    // engraved circular graining on the rim
+    ctx.globalAlpha = 0.25; ctx.strokeStyle = colors['--brass-hi'];
+    for (let k = 0.45; k < 0.86; k += 0.08) { ctx.beginPath(); ctx.arc(g.x, g.y, g.r * k, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore();
+    // hub: blued screw and ruby jewel
+    const hub = Math.max(g.r * 0.26, 9);
+    ctx.beginPath(); ctx.arc(g.x, g.y, hub, 0, Math.PI * 2); ctx.fillStyle = colors['--brass-lo']; ctx.fill();
+    ctx.beginPath(); ctx.arc(g.x, g.y, hub * 0.62, 0, Math.PI * 2); ctx.fillStyle = colors['--accent']; ctx.fill();
+    ctx.save(); ctx.translate(g.x, g.y); ctx.rotate(ang * 0.5);
+    ctx.strokeStyle = colors['--brass-hi']; ctx.globalAlpha = 0.7; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-hub * 0.45, 0); ctx.lineTo(hub * 0.45, 0); ctx.stroke(); ctx.restore();
+    ctx.beginPath(); ctx.arc(g.x, g.y, hub * 0.24, 0, Math.PI * 2); ctx.fillStyle = colors['--jewel']; ctx.fill();
+  }
+
+  let angleA = 0, vel = 0;
+  function draw() {
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.clearRect(0, 0, W, W);
+    GEARS.forEach((g) => drawGear(g, angleOf(g, angleA)));
+  }
+
+  /* Display window follows gear D */
+  // Alternate the two product lines so the window shows both
+  const toolQueue = PRODUCTS.filter((p) => p.kind !== 'books');
+  const bookQueue = PRODUCTS.filter((p) => p.kind === 'books');
+  const order = [];
+  while (toolQueue.length || bookQueue.length) {
+    const t = toolQueue.shift();
+    if (t) order.push(t.id);
+    bookQueue.splice(0, 2).forEach((b) => order.push(b.id));
+  }
+  if (order[0]) document.getElementById('win-img').src = IMG[order[0]];
+  const winImg = document.getElementById('win-img');
+  const winMeta = document.getElementById('win-meta');
+  const winOpen = document.getElementById('win-open');
+  let winIdx = -1, lastFlip = 0;
+  function setWindow(idx, now) {
+    if (idx === winIdx) return;
+    const dir = idx > winIdx || (winIdx === order.length - 1 && idx === 0) ? 1 : -1;
+    winIdx = idx;
+    const p = byId[order[idx]];
+    winImg.src = IMG[p.id];
+    winMeta.textContent = `${p.book ? `Book ${p.book}` : p.kind === 'tools' ? 'Work tool' : 'Printable'} · ${priceText(p.price)}`;
+    winOpen.textContent = p.title;
+    if (!reduced.matches && now - lastFlip > 140) {
+      winImg.animate([{ translate: `0 ${dir * 30}%`, opacity: 0.2 }, { translate: '0 0', opacity: 1 }], { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+    }
+    lastFlip = now;
+  }
+  winOpen.addEventListener('click', () => openSheet(order[winIdx], winImg));
+  const SLOT = (Math.PI * 2) / order.length;
+  function updateWindow(now) {
+    const aD = Math.abs((angleOf(D, angleA) - angleOf(D, 0)));
+    setWindow(Math.floor(aD / SLOT) % order.length, now);
+  }
+
+  /* Physics: idle drift, drag to wind, inertia, scroll nudges */
+  let playing = !reduced.matches, dragging = false, lastT = performance.now(), prevPointer = null;
+  const IDLE = 0.22, FRICTION = 1.9;
+  const pauseBtn = document.getElementById('pause');
+  function syncPause() { pauseBtn.textContent = playing ? 'Pause' : 'Play'; }
+  syncPause();
+  pauseBtn.addEventListener('click', () => { playing = !playing; syncPause(); if (playing) kick(); });
+  document.getElementById('wind').addEventListener('click', () => { vel += 9; kick(); });
+
+  let raf = 0;
+  function kick() { if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(tick); } }
+  function tick(now) {
+    const dt = Math.min((now - lastT) / 1000, 0.05); lastT = now;
+    if (!dragging) {
+      const target = playing ? IDLE : 0;
+      vel += (target - vel) * Math.min(1, FRICTION * dt);
+      angleA += vel * dt;
+    }
+    draw(); updateWindow(now);
+    const idleDone = !dragging && Math.abs(vel - (playing ? IDLE : 0)) < 0.002 && !playing;
+    raf = idleDone ? 0 : requestAnimationFrame(tick);
+  }
+
+  const toLocal = (e) => { const r = canvas.getBoundingClientRect(); return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * W }; };
+  const angleTo = (pt) => Math.atan2(pt.y - A.y, pt.x - A.x);
+  canvas.addEventListener('pointerdown', (e) => {
+    dragging = true; canvas.classList.add('dragging'); canvas.setPointerCapture(e.pointerId);
+    prevPointer = { a: angleTo(toLocal(e)), t: performance.now() }; vel = 0;
+    document.getElementById('hint-text').textContent = 'Let go and it keeps turning';
+    kick();
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const now = performance.now(), a = angleTo(toLocal(e));
+    let d = a - prevPointer.a; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
+    angleA += d;
+    const dt = Math.max((now - prevPointer.t) / 1000, 0.008);
+    vel = vel * 0.6 + (d / dt) * 0.4;
+    prevPointer = { a, t: now };
+  });
+  const release = () => { if (!dragging) return; dragging = false; canvas.classList.remove('dragging'); vel = Math.max(-28, Math.min(28, vel)); kick(); };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+
+  let lastY = scrollY;
+  addEventListener('scroll', () => {
+    const d = scrollY - lastY; lastY = scrollY;
+    if (reduced.matches) return;
+    vel += d * 0.02; kick();
+  }, { passive: true });
+
+  // Spin up once on load, like a fresh wind
+  addEventListener('resize', resize);
+  document.fonts?.ready.then(resize);
+  resize();
+  if (!reduced.matches) { vel = 6; }
+  kick();
+  reduced.addEventListener('change', () => { if (reduced.matches) { playing = false; syncPause(); } });
+})();
+</script>
+
+</body>
+</html>
