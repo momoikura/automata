@@ -182,15 +182,22 @@
   footer p { margin: 0; color: var(--ink-3); font-size: 14px; max-inline-size: 36rem; }
 
   /* Detail sheet */
-  dialog.sheet { inline-size: min(880px, calc(100vw - 32px)); max-block-size: calc(100dvh - 48px); padding: 0; border: 1px solid var(--line-strong); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px var(--shadow); overflow: auto; view-transition-name: sheet; }
+  dialog.sheet { inline-size: min(960px, calc(100vw - 32px)); max-block-size: calc(100dvh - 32px); padding: 0; border: 1px solid var(--line-strong); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px var(--shadow); overflow: auto; view-transition-name: sheet; }
   dialog.sheet:modal { overscroll-behavior: contain; }
   dialog.sheet::backdrop { background: rgb(8 10 12 / 0.55); backdrop-filter: blur(4px); overflow: hidden; overscroll-behavior: contain; }
-  .sheet-grid { display: grid; grid-template-columns: 1.1fr 1fr; }
-  @media (max-width: 760px) { .sheet-grid { grid-template-columns: 1fr; } }
-  .sheet-media { background: var(--raised); align-self: stretch; display: grid; align-content: center; }
-  .sheet-media img { inline-size: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
-  .sheet-body { display: grid; gap: 16px; padding: 28px; align-content: start; }
-  .sheet-body h1 { font: 400 30px/1.12 var(--font-display); letter-spacing: -0.01em; }
+  /* The whole cover stays visible: block-size: auto lets aspect-ratio win over the height attribute,
+     and on short screens the cover is capped and letterboxed (contain) instead of cropped. */
+  .sheet-media { margin: 0; display: grid; place-items: center; background: var(--raised); border-block-end: 1px solid var(--line); }
+  .sheet-media img { inline-size: 100%; block-size: auto; aspect-ratio: 16 / 9; max-block-size: min(58dvh, 540px); object-fit: contain; }
+  /* Text layout follows the panel's own width, not the viewport */
+  .sheet-wrap { container-type: inline-size; }
+  .sheet-body { display: grid; gap: 24px; padding: 24px; }
+  .sheet-main, .sheet-side { display: grid; gap: 14px; align-content: start; min-width: 0; }
+  @container (min-width: 620px) {
+    .sheet-body { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 32px; padding: 28px 32px 32px; }
+    .sheet-side { padding-inline-start: 32px; border-inline-start: 1px solid var(--line); }
+  }
+  .sheet-body h1 { font: 400 clamp(24px, 1rem + 2.2cqi, 34px)/1.12 var(--font-display); letter-spacing: -0.01em; text-wrap: balance; }
   .sheet-body p { margin: 0; color: var(--ink-2); }
   .details { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
   .details dt { color: var(--ink-3); }
@@ -198,7 +205,8 @@
   .code { font-family: var(--font-mono); font-size: 13px; color: var(--ink); background: var(--raised); border-radius: 6px; padding: 8px 10px; }
   .sheet-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding-block-start: 16px; border-block-start: 1px solid var(--line); }
   .sheet-actions .price { font-size: 22px; }
-  .close { position: absolute; top: 12px; right: 12px; inline-size: 40px; block-size: 40px; border-radius: 10px; border: 1px solid var(--line-strong); background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+  /* z-index: the cover gets a view-transition-name while open, which makes it its own layer above earlier siblings */
+  .close { position: absolute; z-index: 2; top: 12px; right: 12px; inline-size: 40px; block-size: 40px; border-radius: 10px; border: 1px solid var(--line-strong); background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--ink); display: grid; place-items: center; cursor: pointer; }
 
   @media (max-width: 920px) {
     .hero { grid-template-columns: 1fr; padding-block: 40px 32px; gap: 32px; }
@@ -361,18 +369,22 @@
   <button type="button" class="close" id="sheet-close" aria-label="Close">
     <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
   </button>
-  <div class="sheet-grid">
-    <div class="sheet-media"><img id="sheet-img" alt="" width="800" height="450"></div>
+  <figure class="sheet-media"><img id="sheet-img" alt="" width="800" height="450"></figure>
+  <div class="sheet-wrap">
     <div class="sheet-body">
-      <span class="mono" id="sheet-kicker"></span>
-      <h1 id="sheet-title"></h1>
-      <p id="sheet-sum"></p>
-      <dl class="details" id="sheet-details"></dl>
-      <p class="code" id="sheet-code" hidden></p>
-      <div class="sheet-actions">
-        <span class="price" id="sheet-price"></span>
-        <a class="btn btn-primary" id="sheet-buy" target="_blank" rel="noopener">Get it on Gumroad
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+      <div class="sheet-main">
+        <span class="mono" id="sheet-kicker"></span>
+        <h1 id="sheet-title"></h1>
+        <p id="sheet-sum"></p>
+        <p class="code" id="sheet-code" hidden></p>
+      </div>
+      <div class="sheet-side">
+        <dl class="details" id="sheet-details"></dl>
+        <div class="sheet-actions">
+          <span class="price" id="sheet-price"></span>
+          <a class="btn btn-primary" id="sheet-buy" target="_blank" rel="noopener">Get it on Gumroad
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+        </div>
       </div>
     </div>
   </div>
