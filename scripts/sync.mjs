@@ -11,6 +11,9 @@ import { mkdir, writeFile, copyFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { shortTitle, summaryOf, classify, productUrl, isVisible } from './feed.mjs';
+import { renderProfile } from './profile.mjs';
+
+const STOREFRONT_URL = 'https://momoikura.github.io/automata/';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public');
@@ -72,6 +75,7 @@ async function main() {
     currency: p.currency || 'usd',
     sum: summaryOf(p),
     cover: await saveImage(p.preview_url || p.thumbnail_url, `covers/${safeId(p.id)}`),
+    coverSource: p.preview_url || p.thumbnail_url || '',
     ...classify(p),
   })));
 
@@ -81,6 +85,7 @@ async function main() {
       username: storeUrl ? new URL(storeUrl).hostname.split('.')[0] : '',
       url: storeUrl,
       avatar: await saveImage(user.profile_picture_url, 'avatar'),
+      avatarSource: user.profile_picture_url || '',
     },
     products: out,
     updatedAt: new Date().toISOString(),
@@ -91,6 +96,34 @@ async function main() {
   await writeFile(path.join(OUT, '.nojekyll'), '');
   const missing = out.filter((p) => !p.cover).length;
   console.log(`Built ${out.length} products (${missing} without a cover) for ${feed.profile.name}`);
+
+  // The Gumroad profile page, rebuilt from the same feed. Pushed only when it changed.
+  const profileHtml = renderProfile(feed, { storefrontUrl: STOREFRONT_URL });
+  await writeFile(path.join(OUT, 'profile-preview.html'), `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>${profileHtml}</body></html>`);
+  if (process.env.PUSH_PROFILE === '1') await pushProfile(profileHtml);
+}
+
+// Compares without the "Updated" date so an unchanged catalogue doesn't rewrite the profile every run.
+const comparable = (html) => String(html || '').replace(/Updated \d{4}-\d{2}-\d{2}/, '');
+
+async function pushProfile(html) {
+  const current = await gumroad('/user/custom_html');
+  if (comparable(current.custom_html) === comparable(html)) {
+    console.log('Gumroad profile already up to date');
+    return;
+  }
+  const res = await fetch(`${API}/user/custom_html`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ custom_html: html }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || body?.success === false) {
+    throw new Error(`Updating the Gumroad profile failed (${res.status}): ${body?.message ?? 'no message'}`);
+  }
+  const removed = body?.sanitization_report?.total_removed ?? 0;
+  console.log(`Gumroad profile updated (${removed} item(s) removed by Gumroad's sanitizer)`);
 }
 
 main().catch((err) => {
