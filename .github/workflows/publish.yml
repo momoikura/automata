@@ -3,6 +3,7 @@ name: Sync from Gumroad and publish
 on:
   schedule:
     - cron: "*/30 * * * *"   # every 30 minutes (GitHub may start scheduled runs a few minutes late)
+    - cron: "17 3 * * *"     # once a day: also runs the keepalive job below
   workflow_dispatch:
   push:
     branches: [main]
@@ -35,6 +36,21 @@ jobs:
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: public
+
+  # GitHub pauses scheduled workflows in public repos after 60 days without commits.
+  # Re-enabling the workflow through the API once a day keeps the schedule running
+  # without adding commits (the same approach as the keepalive-workflow action's API mode).
+  keepalive:
+    if: github.event.schedule == '17 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+    steps:
+      - name: Keep the schedule from being paused
+        run: gh api --method PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/publish.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   deploy:
     needs: build
