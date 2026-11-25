@@ -57,10 +57,28 @@ async function saveImage(url, baseName) {
   }
 }
 
+// /products is paginated (10 per page, newest first); follow next_page_key until the end.
+const MAX_PAGES = 50;
+async function allProducts() {
+  const all = [];
+  let key = '';
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const body = await gumroad(`/products${key ? `?page_key=${encodeURIComponent(key)}` : ''}`);
+    all.push(...(body.products || []));
+    key = body.next_page_key;
+    if (!key) return all;
+  }
+  throw new Error(`Gumroad returned more than ${MAX_PAGES} pages of products; stopping.`);
+}
+
 const safeId = (id) => String(id).replace(/[^A-Za-z0-9_-]/g, '');
 
 async function main() {
-  const [{ user }, { products }] = await Promise.all([gumroad('/user'), gumroad('/products')]);
+  const [{ user }, products] = await Promise.all([gumroad('/user'), allProducts()]);
+  // Never publish an empty shelf: a broken or partial API response should fail the run, not wipe the site.
+  if (!products.some(isVisible)) {
+    throw new Error(`Gumroad returned ${products.length} products and none are published. Refusing to publish an empty storefront.`);
+  }
   await rm(OUT, { recursive: true, force: true });
   await mkdir(path.join(OUT, 'data', 'covers'), { recursive: true });
 
