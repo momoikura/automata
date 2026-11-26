@@ -32,8 +32,11 @@ function gearsSvg() {
 </svg>`;
 }
 
-const card = (p, label) => `<li><a class="card" href="${esc(p.url)}">
-      <span class="cover"><img src="${esc(p.coverSource || p.cover)}" alt="" width="800" height="450" loading="lazy"></span>
+// Gumroad refuses a profile page with more than 25 images, avatar included.
+const MAX_IMAGES = 25;
+
+const card = (p, label, withCover = true) => `<li><a class="card${withCover ? '' : ' text-only'}" href="${esc(p.url)}">
+      ${withCover ? `<span class="cover"><img src="${esc(p.coverSource || p.cover)}" alt="" width="800" height="450" loading="lazy"></span>` : ''}
       <span class="body">
         <span class="label">${esc(label)}</span>
         <span class="title">${esc(p.title)}</span>
@@ -52,6 +55,8 @@ export function renderProfile(feed, { storefrontUrl } = {}) {
   const { name = 'Automata', avatar, url } = feed.profile || {};
   const avatarSrc = feed.profile?.avatarSource || avatar || '';
   const minPrice = Math.min(...products.map((p) => p.price));
+  // Books sell on their covers, so they get images first; work tools share what is left, in feed order.
+  const toolCovers = Math.max(0, MAX_IMAGES - (avatarSrc ? 1 : 0) - books.length);
 
   return `<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -123,6 +128,8 @@ export function renderProfile(feed, { storefrontUrl } = {}) {
   .price.free { color: var(--accent); }
   .go { font-size: 14px; color: var(--ink-3); }
   .card:hover .go { color: var(--ink); }
+  .card.text-only { border-block-start: 3px solid var(--accent); }
+  .card.text-only .body { block-size: 100%; }
 
   .rail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 31%); gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; list-style: none; margin: 0; padding: 4px 2px 20px; }
   @media (max-width: 700px) { .rail { grid-auto-columns: 84%; } }
@@ -156,7 +163,7 @@ export function renderProfile(feed, { storefrontUrl } = {}) {
 
   ${tools.length ? `<section class="block" id="tools" aria-labelledby="tools-h"><div class="wrap">
     <div class="head"><span class="mono">Work tools</span><h2 id="tools-h">Guides and calculators for getting paid work done</h2></div>
-    <ul class="grid">${tools.map((p) => card(p, 'Work tool')).join('')}</ul>
+    <ul class="grid">${tools.map((p, i) => card(p, 'Work tool', i < toolCovers)).join('')}</ul>
   </div></section>` : ''}
 
   ${paidBooks.length ? `<section class="block" id="books" aria-labelledby="books-h"><div class="wrap">
