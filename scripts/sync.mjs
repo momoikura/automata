@@ -7,7 +7,7 @@
 // public/data/products.json     { profile, products[], updatedAt }
 // public/data/avatar.<ext>      profile picture
 // public/data/covers/<id>.<ext> one cover per product
-import { mkdir, writeFile, copyFile, rm } from 'node:fs/promises';
+import { mkdir, writeFile, copyFile, rm, cp, access } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { shortTitle, summaryOf, classify, productUrl, isVisible } from './feed.mjs';
@@ -111,6 +111,9 @@ async function main() {
 
   await writeFile(path.join(OUT, 'data', 'products.json'), JSON.stringify(feed));
   await copyFile(path.join(ROOT, 'index.html'), path.join(OUT, 'index.html'));
+  // Static images for social posts and the page itself, committed in ./assets.
+  const assets = path.join(ROOT, 'assets');
+  if (await access(assets).then(() => true, () => false)) await cp(assets, path.join(OUT, 'assets'), { recursive: true });
   await writeFile(path.join(OUT, '.nojekyll'), '');
   const missing = out.filter((p) => !p.cover).length;
   console.log(`Built ${out.length} products (${missing} without a cover) for ${feed.profile.name}`);
